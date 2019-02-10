@@ -1,12 +1,12 @@
 package frc.team691.qtbot;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import java.util.Scanner;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.Joystick;
@@ -36,6 +36,7 @@ public class Robot extends TimedRobot {
         SmartDashboard.putBoolean("load", false);
         if (loadState()) {
             System.out.println("Loaded state from file");
+            SmartDashboard.putNumber("numMotors", motors.size());
         }
     }
 
@@ -126,9 +127,13 @@ public class Robot extends TimedRobot {
     }
 
     private boolean addMotor(String type) {
+        return addMotor(type, 1);
+    }
+
+    private boolean addMotor(String scType, double maxOut) {
         int m = motors.size();
         try {
-            Class<?> scClass = Class.forName("edu.wpi.first.wpilibj." + type);
+            Class<?> scClass = Class.forName("edu.wpi.first.wpilibj." + scType);
             Constructor<?> cst = scClass.getConstructor(Integer.TYPE);
             motors.add((PWMSpeedController) cst.newInstance(m));
         } catch (Exception e) {
@@ -138,7 +143,7 @@ public class Robot extends TimedRobot {
         String mi = "motor" + m;
         SmartDashboard.putNumber(mi, 0);
         mi += "max";
-        SmartDashboard.putNumber(mi, 1);
+        SmartDashboard.putNumber(mi, maxOut);
         return true;
     }
 
@@ -181,10 +186,10 @@ public class Robot extends TimedRobot {
 
     private boolean saveState() {
         try {
-            stateFile.createNewFile();
             PrintWriter fout = new PrintWriter(stateFile);
-            for (PWMSpeedController psc : motors) {
-                fout.println(psc.getClass().getSimpleName());
+            for (int i = 0; i < motors.size(); i++) {
+                double maxOut = SmartDashboard.getNumber(String.format("motor%dmax", i), 1);
+                fout.format("%s %f\n", motors.get(i).getClass().getSimpleName(), maxOut);
             }
             fout.close();
         } catch (IOException e) {
@@ -200,12 +205,11 @@ public class Robot extends TimedRobot {
         }
         clearMotors();
         try {
-            BufferedReader br = new BufferedReader(new FileReader(stateFile));
-            String sc;
-            while ((sc = br.readLine()) != null) {
-                addMotor(sc);
+            Scanner scan = new Scanner(new FileInputStream(stateFile));
+            while (scan.hasNext()) {
+                addMotor(scan.next(), scan.nextDouble());
             }
-            br.close();
+            scan.close();
         } catch (IOException e) {
             e.printStackTrace();
             return false;
