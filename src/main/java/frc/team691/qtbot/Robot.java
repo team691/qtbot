@@ -1,29 +1,42 @@
 package frc.team691.qtbot;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.Filesystem;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.PWMSpeedController;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 public class Robot extends TimedRobot {
+    private static final String STATE_FILE_NAME = "qtbot.save";
     private static final String[] SPEED_CONTROLLERS = new String[] {
-        "Spark",
-        "Talon"
+        "Spark", "Talon"
     };
 
+    File stateFile;
     ArrayList<PWMSpeedController> motors = new ArrayList<>();
     Joystick[] sticks;
 
     @Override
     public void robotInit() {
+        stateFile = new File(Filesystem.getOperatingDirectory(), STATE_FILE_NAME);
         for (String sc : SPEED_CONTROLLERS) {
             SmartDashboard.putBoolean("add " + sc, false);
         }
         SmartDashboard.putBoolean("remove", false);
         SmartDashboard.putBoolean("clear", false);
+        SmartDashboard.putBoolean("save", false);
+        SmartDashboard.putBoolean("load", false);
+        if (loadState()) {
+            System.out.println("Loaded state from file");
+        }
     }
 
     @Override
@@ -36,7 +49,9 @@ public class Robot extends TimedRobot {
 
     @Override
     public void disabledPeriodic() {
-        updateMotors();
+        if (updateMotors()) {
+            SmartDashboard.putNumber("numMotors", motors.size());
+        }
     }
 
     @Override
@@ -83,24 +98,30 @@ public class Robot extends TimedRobot {
         for (String sc : SPEED_CONTROLLERS) {
             String sci = "add " + sc;
             if (SmartDashboard.getBoolean(sci, false)) {
-                addMotor(sc);
                 SmartDashboard.putBoolean(sci, false);
                 updated = true;
+                addMotor(sc);
             }
         }
         if (SmartDashboard.getBoolean("remove", false)) {
-            popMotor();
             SmartDashboard.putBoolean("remove", false);
             updated = true;
+            popMotor();
         }
         if (SmartDashboard.getBoolean("clear", false)) {
-            while (!motors.isEmpty()) {
-                popMotor();
-            }
             SmartDashboard.putBoolean("clear", false);
             updated = true;
+            clearMotors();
         }
-        SmartDashboard.putNumber("numMotors", motors.size());
+        if (SmartDashboard.getBoolean("save", false)) {
+            SmartDashboard.putBoolean("save", false);
+            saveState();
+        }
+        if (SmartDashboard.getBoolean("load", false)) {
+            SmartDashboard.putBoolean("load", false);
+            updated = true;
+            loadState();
+        }
         return updated;
     }
 
@@ -121,9 +142,17 @@ public class Robot extends TimedRobot {
         return true;
     }
 
+    private boolean clearMotors() {
+        boolean res = popMotor();
+        while (popMotor());
+        return res;
+    }
+
     private boolean popMotor() {
         int m = motors.size() - 1;
-        if (m < 0) return false;
+        if (m < 0) {
+            return false;
+        }
         /*
         String mi = "motor" + m;
         SmartDashboard.delete(mi);
@@ -137,13 +166,49 @@ public class Robot extends TimedRobot {
     private boolean updateSticks() {
         int i;
         for (i = 0; DriverStation.getInstance().getJoystickType(i) != 0; i++);
-        if (sticks != null && sticks.length == i) return false;
+        if (sticks != null && sticks.length == i) {
+            return false;
+        }
         sticks = new Joystick[i];
         for (i = 0; i < sticks.length; i++) {
             sticks[i] = new Joystick(i);
             sticks[i].setThrottleChannel(sticks[i].getAxisCount() - 1);
             String si = "stick" + i;
             SmartDashboard.putNumber(si, SmartDashboard.getNumber(si, i));
+        }
+        return true;
+    }
+
+    private boolean saveState() {
+        try {
+            stateFile.createNewFile();
+            PrintWriter fout = new PrintWriter(stateFile);
+            for (PWMSpeedController psc : motors) {
+                fout.println(psc.getClass().getSimpleName());
+            }
+            fout.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    private boolean loadState() {
+        if (!stateFile.exists() || !stateFile.canRead()) {
+            return false;
+        }
+        clearMotors();
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(stateFile));
+            String sc;
+            while ((sc = br.readLine()) != null) {
+                addMotor(sc);
+            }
+            br.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
         }
         return true;
     }
