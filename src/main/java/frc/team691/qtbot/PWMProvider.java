@@ -2,77 +2,63 @@ package frc.team691.qtbot;
 
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
+import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.PWMSpeedController;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 public class PWMProvider extends HardwareProvider {
-    private static final String[] MOTOR_TYPES = new String[] {
-        "Spark", "Talon"
-    };
-    private static final String[] SINGLE_ACTIONS = new String[] {
-        "remove", "clear"
-    };
-    private static final String[] LIST_ACTIONS = new String[] {
-        "add"
-    };
+    private ArrayList<PWMSpeedController> motors = new ArrayList<>();
 
-    ArrayList<PWMSpeedController> motors = new ArrayList<>();
-
-    @Override
-    public void robotInit() {
-        for (String la : LIST_ACTIONS) {
-            for (String sc : MOTOR_TYPES) {
-                SmartDashboard.putBoolean(String.format("%s %s", la, sc), false);
-            }
-        }
-        for (String sa : SINGLE_ACTIONS) {
-            SmartDashboard.putBoolean(sa, false);
-        }
+    public PWMProvider() {
+        types = new String[] {"Spark", "Talon"};
+        singleActions = new String[] {"remove", "clear"};
+        typeActions = new String[] {"add"};
     }
 
     @Override
     public void disabledPeriodic() {
-        if (updatePeriodic()) {
+        if (runActions()) {
             SmartDashboard.putNumber("numMotors", motors.size());
         }
     }
 
-    public boolean updatePeriodic() {
-        boolean updated = false;
-        for (int i = 0; i < LIST_ACTIONS.length; i++) {
-            String la = LIST_ACTIONS[i];
-            for (String sc : MOTOR_TYPES) {
-                String sci = String.format("%s %s", la, sc);
-                if (SmartDashboard.getBoolean(sci, false)) {
-                    SmartDashboard.putBoolean(sci, false);
-                    updated = handleListAction(i, sc);
-                }
-            }
+    @Override
+    public void autonomousPeriodic() {
+        for (int i = 0; i < motors.size(); i++) {
+            motors.get(i).set(SmartDashboard.getNumber("motor" + i, 0));
         }
-        for (int i = 0; i < SINGLE_ACTIONS.length; i++) {
-            String sa = SINGLE_ACTIONS[i];
-            if (SmartDashboard.getBoolean(sa, false)) {
-                SmartDashboard.putBoolean(sa, false);
-                updated = handleSingleAction(i);
-            }
-        }
-        return updated;
     }
 
-    private boolean handleListAction(int i, String item) {
-        switch (i) {
-            case 0 :
-                return addMotor(item);
+    @Override
+    public void teleopPeriodic(Joystick[] sticks) {
+        for (int i = 0; i < sticks.length; i++) {
+            int am = Math.abs((int) SmartDashboard.getNumber("stick" + i, i));
+            if (am < motors.size()) {
+                double t = (sticks[i].getThrottle() + 1) / 2;
+                t *= SmartDashboard.getNumber("motor" + am + "max", 1);
+                double out = t;
+                motors.get(am).set(out);
+                SmartDashboard.putNumber("motor" + am, out);
+            }
         }
-        return false;
     }
 
-    private boolean handleSingleAction(int i) {
-        switch (i) {
+    @Override
+    protected boolean handleAction(int singleActionPos) {
+        switch (singleActionPos) {
             case 0 :
                 return popMotor();
             case 1 :
                 return clearMotors();
+        }
+        return false;
+    }
+
+    @Override
+    protected boolean handleAction(int typeActionPos, int typePos) {
+        switch (typeActionPos) {
+            case 0 :
+                return addMotor(types[typePos]);
         }
         return false;
     }
@@ -117,5 +103,27 @@ public class PWMProvider extends HardwareProvider {
         */
         motors.remove(m).close();
         return true;
+    }
+
+    @Override
+    public ProviderState saveState() {
+        ProviderState state = new ProviderState();
+        for (int i = 0; i < motors.size(); i++) {
+            double maxOut = SmartDashboard.getNumber(String.format("motor%dmax", i), 1);
+            state.lines.add(String.format("%s %f", motors.get(i).getClass().getSimpleName(), maxOut));
+        }
+        return state;
+    }
+
+    @Override
+    public boolean loadState(ProviderState state) {
+        String[] lineArr = null;
+        clearMotors();
+        for (String line : state.lines) {
+            lineArr = line.split(" ");
+            addMotor(lineArr[0], Double.parseDouble(lineArr[1]));
+        }
+        SmartDashboard.putNumber("numMotors", motors.size());
+        return lineArr != null;
     }
 }
