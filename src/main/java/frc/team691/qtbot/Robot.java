@@ -104,7 +104,7 @@ public class Robot extends TimedRobot {
 
     private boolean updateSticks() {
         int i;
-        for (i = 0; DriverStation.getInstance().getJoystickType(i) != 0; i++);
+        for (i = 0; DriverStation.getInstance().getJoystickType(i) != 0 && i < 5; i++);
         if (sticks != null && sticks.length == i) {
             return false;
         }

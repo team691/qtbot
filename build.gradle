@@ -1,6 +1,7 @@
 plugins {
     id "java"
     id "edu.wpi.first.GradleRIO" version "2019.2.1"
+    id "com.snobot.simulator.plugin.SnobotSimulatorPlugin" version "2019-1.0.0" apply false
 }
 
 sourceCompatibility = JavaVersion.VERSION_11
@@ -40,6 +41,14 @@ deploy {
 // Set this to true to enable desktop support.
 def includeDesktopSupport = false
 
+//
+apply plugin: com.snobot.simulator.plugin.SnobotSimulatorPlugin
+
+configurations {
+    snobotSimCompile
+}
+//
+
 // Maven central needed for JUnit
 repositories {
     //mavenCentral()
@@ -53,6 +62,8 @@ dependencies {
     nativeZip wpi.deps.vendor.jni(wpi.platforms.roborio)
     nativeDesktopZip wpi.deps.vendor.jni(wpi.platforms.desktop)
     //testCompile 'junit:junit:4.12'
+
+    snobotSimCompile snobotSimJava()
 }
 
 // Setting up my Jar File. In this case, adding all libraries into the main jar ('fat jar')
