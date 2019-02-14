@@ -18,7 +18,7 @@ public class Robot extends TimedRobot {
     private Joystick[] sticks;
     // TODO: dynamically load providers
     private HardwareProvider[] providers = new HardwareProvider[] {
-        new PWMProvider()
+        new PWMProvider(), new EncoderProvider()
     };
 
     @Override

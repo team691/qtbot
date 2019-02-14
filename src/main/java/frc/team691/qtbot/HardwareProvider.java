@@ -5,8 +5,8 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 public abstract class HardwareProvider {
     protected String[] types = new String[0];
-    protected String[] typeActions = new String[0];
-    protected String[] singleActions = new String[0];
+    protected String[] typeActions = new String[] {"add"};
+    protected String[] singleActions = new String[] {"remove", "clear"};
 
     public void robotInit() {
         setupActions();
@@ -68,12 +68,32 @@ public abstract class HardwareProvider {
         return updated;
     }
     protected boolean handleAction(int singleActionPos) {
-        // Override me!
+        switch (singleActionPos) {
+            case 0 :
+                return pop();
+            case 1 :
+                return clear();
+        }
         return false;
     }
     protected boolean handleAction(int typeActionPos, int typePos) {
-        // Override me!
+        switch (typeActionPos) {
+            case 0 :
+                return add(types[typePos]);
+        }
         return false;
+    }
+
+    protected boolean add(String type) {
+        return false;
+    }
+    protected boolean pop() {
+        return false;
+    }
+    protected boolean clear() {
+        boolean res = pop();
+        while (pop());
+        return res;
     }
 
     public ProviderState saveState() {
